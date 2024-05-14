@@ -12,8 +12,14 @@ app.get('/', (req, res) => {
     res.json({code: 0, message: 'Server launched successfully'})
 })
 
+app.use('/accounts', require('./routers/Account'))
+
+app.use('/folders', require('./routers/Folder'))
+
+app.use('/topics', require('./routers/Topic'))
+
 app.use((req, res) => {
-    res.redirect({code: 2, message: 'Path is not supported'})
+    res.json({code: 2, message: 'Path is not supported'})
 })
 
 const PORT = process.env.PORT || 3000
