@@ -117,31 +117,24 @@ module.exports.get_topics_from_folder = (req, res) => {
         });
 }
 
-module.exports.add_topics_to_folder = (req, res) => {
+module.exports.add_topic_to_folder = (req, res) => {
 
-    const { folderId } = req.params
-    const { listTopicId } = req.body
+    const { folderId, topicId } = req.params
 
     if (!mongoose.Types.ObjectId.isValid(folderId)) {
         return res.json({ code: 1, message: 'Invalid folder ID' })
     }
 
-    if (!listTopicId) {
-        return res.json({ code: 1, message: 'Please provide ID of topics' })
+    if (!mongoose.Types.ObjectId.isValid(topicId)) {
+        return res.json({ code: 1, message: 'Invalid topic ID' })
     }
 
-    for (const topicId of listTopicId) {
-        if (!mongoose.Types.ObjectId.isValid(topicId)) {
-            return res.json({ code: 1, message: `Invalid topic ID: ${topicId}` })
-        }
-    }
-
-    const folderTopics = listTopicId.map(topicId => ({
+    const newFolderTopic = FolderTopic({
         folderId: folderId,
         topicId: topicId
-    }));
+    })
 
-    FolderTopic.insertMany(folderTopics)
+    newFolderTopic.save()
         .then(folderTopic => {
             return res.json({ code: 0, message: 'Add topic to folder successfully' })
         })
@@ -161,7 +154,7 @@ module.exports.remove_topic_from_folder = (req, res) => {
         return res.json({ code: 1, message: 'Invalid topic ID' })
     }
 
-    FolderTopic.findOneAndDelete({folderId, topicId})
+    FolderTopic.findOneAndDelete({ folderId, topicId })
         .then(folderTopic => {
             if (!folderTopic) {
                 return res.json({ code: 1, message: 'Folder does not contain topic' })

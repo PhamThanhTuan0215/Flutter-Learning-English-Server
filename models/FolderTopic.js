@@ -4,11 +4,13 @@ const Schema = mongoose.Schema
 const FolderTopicSchema = new Schema({
     folderId: {
         type: Schema.Types.ObjectId,
-        ref: 'Folder'
+        ref: 'Folder',
+        require: true
     },
     topicId: {
         type: Schema.Types.ObjectId,
-        ref: 'Topic'
+        ref: 'Topic',
+        require: true
     },
 })
 

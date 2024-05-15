@@ -2,9 +2,22 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 
 const TopicSchema = new Schema({
-    topicName: String,
-    isPublic: Boolean,
-    owner: String, // username in Account
+    topicName: {
+        type: String,
+        require: true
+    },
+    isPublic: {
+        type: Boolean,
+        default: false
+    },
+    owner: {
+        type: String,
+        require: true
+    }, // username in Account
+    total: {
+        type: Number,
+        default: 0
+    },
     createAt: {
         type: Date,
         default: Date.now

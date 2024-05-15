@@ -2,10 +2,14 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 
 const FolderSchema = new Schema({
-    folderName: String,
+    folderName: {
+        type: String,
+        require: true
+    },
     accountId: {
         type: Schema.Types.ObjectId,
-        ref: 'Account'
+        ref: 'Account',
+        require: true
     },
     createAt: {
         type: Date,

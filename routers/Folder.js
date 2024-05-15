@@ -13,7 +13,7 @@ Router.patch('/rename/:folderId', Controller.rename_folder)
 
 Router.get('/:folderId/topics', Controller.get_topics_from_folder)
 
-Router.post('/:folderId/add-topics', Controller.add_topics_to_folder)
+Router.post('/:folderId/add-topic/:topicId', Controller.add_topic_to_folder)
 
 Router.delete('/:folderId/remove-topic/:topicId', Controller.remove_topic_from_folder)
 

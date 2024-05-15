@@ -6,13 +6,13 @@ const Word = require('../models/Word')
 
 module.exports.get_topics = (req, res) => {
 
-    const { user } = req.params
+    const { username } = req.params
 
-    if (!user) {
-        return res.json({ code: 1, message: 'Please provide user' })
+    if (!username) {
+        return res.json({ code: 1, message: 'Please provide username' })
     }
 
-    AccountTopic.find({ user })
+    AccountTopic.find({ username })
         .then(accountTopics => {
 
             const topicIds = accountTopics.map(at => at.topicId)
@@ -24,6 +24,17 @@ module.exports.get_topics = (req, res) => {
         })
         .catch(err => {
             return res.json({ code: 1, message: 'Search topics failed' })
+        });
+}
+
+module.exports.get_all_public_topics = (req, res) => {
+
+    Topic.find({ isPublic: true })
+        .then(listTopic => {
+            return res.json({ code: 0, listTopic })
+        })
+        .catch(err => {
+            return res.json({ code: 1, message: 'Search public topics failed' })
         });
 }
 
@@ -41,7 +52,7 @@ module.exports.add_topic = (req, res) => {
     newTopic.save()
         .then(topic => {
             let newAccountTopic = AccountTopic({
-                user: owner,
+                username: owner,
                 topicId: topic._id
             })
             newAccountTopic.save()
@@ -103,48 +114,79 @@ module.exports.rename_topic = (req, res) => {
         })
 }
 
-module.exports.add_topic_to_user = (req, res) => {
-    const { topicId, user } = req.params
+module.exports.add_topic_to_user = async (req, res) => {
+    const { topicId, username } = req.params
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
         return res.json({ code: 1, message: 'Invalid topic ID' })
     }
 
-    if(!user) {
-        return res.json({ code: 1, message: 'Please provide user' })
+    if (!username) {
+        return res.json({ code: 1, message: 'Please provide username' })
     }
 
-    const newAccountTopic = AccountTopic({
-        user: user,
-        topicId: topicId
-    })
+    const topic = await Topic.findById(topicId)
 
-    newAccountTopic.save()
-        .then(accountTopic => {
-            return res.json({ code: 0, message: 'Add topic to user successfully' })
+    if (!topic) {
+        return res.json({ code: 1, message: 'Topic not found' })
+    }
+
+    AccountTopic.findOne({ username: username, topicId: topicId })
+        .then(exiting => {
+            if (exiting) {
+                return res.json({ code: 1, message: 'Topic already exists in library' })
+            }
+            else {
+                const newAccountTopic = AccountTopic({
+                    username: username,
+                    topicId: topicId
+                });
+    
+                return newAccountTopic.save()
+                    .then(async accountTopic => {
+                        const words = await Word.find({ username: topic.owner, topicId: topic._id })
+                        const copyWords = words.map(word => {
+                            return new Word({
+                                username: username,
+                                topicId: word.topicId,
+                                english: word.english,
+                                vietnamese: word.vietnamese,
+                                description: word.description,
+                                copyId: word._id
+                            })
+                        })
+            
+                        Word.insertMany(copyWords)
+            
+                        return res.json({ code: 0, message: 'Add topic to user successfully' })
+                    })
+            }
         })
         .catch(err => {
             return res.json({ code: 1, message: 'Add topic to user failed' })
-        })
+        });
 }
 
 module.exports.remove_topic_from_user = (req, res) => {
-    const { topicId, user } = req.params
+    const { topicId, username } = req.params
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
         return res.json({ code: 1, message: 'Invalid topic ID' })
     }
 
-    if(!user) {
-        return res.json({ code: 1, message: 'Please provide user' })
+    if (!username) {
+        return res.json({ code: 1, message: 'Please provide username' })
     }
 
-    AccountTopic.findOneAndDelete({user, topicId})
+    AccountTopic.findOneAndDelete({ username, topicId })
         .then(accountTopic => {
             if (!accountTopic) {
                 return res.json({ code: 1, message: 'User does not contain topic' })
             }
 
+            Promise.all([
+                Word.deleteMany({ username, topicId })
+            ])
             return res.json({ code: 0, message: "Remove topic from user successfully" })
         })
         .catch(err => {
@@ -154,13 +196,17 @@ module.exports.remove_topic_from_user = (req, res) => {
 
 module.exports.get_words_from_topic = (req, res) => {
 
-    const { topicId } = req.params
+    const { topicId, username } = req.params
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
         return res.json({ code: 1, message: 'Invalid topic ID' })
     }
 
-    Word.find({ topicId })
+    if (!username) {
+        return res.json({ code: 1, message: 'Please provide username' })
+    }
+
+    Word.find({ topicId, username })
         .then(listWord => {
             return res.json({ code: 0, listWord })
         })
@@ -170,11 +216,15 @@ module.exports.get_words_from_topic = (req, res) => {
 }
 
 module.exports.add_words_to_topic = (req, res) => {
-    const { topicId } = req.params
+    const { topicId, username } = req.params
     const { listWord } = req.body
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
         return res.json({ code: 1, message: 'Invalid topic ID' })
+    }
+
+    if (!username) {
+        return res.json({ code: 1, message: 'Please provide username' })
     }
 
     if (!listWord) {
@@ -185,6 +235,7 @@ module.exports.add_words_to_topic = (req, res) => {
         const { english, vietnamese, description } = word
 
         return {
+            username: username,
             topicId: topicId,
             english: english,
             vietnamese: vietnamese,
@@ -195,7 +246,33 @@ module.exports.add_words_to_topic = (req, res) => {
     Topic.findById(topicId)
         .then(topic => {
             Word.insertMany(words)
-                .then(() => {
+                .then(newWords => {
+                    topic.total = topic.total + words.length
+                    topic.save()
+
+                    AccountTopic.distinct('username', { topicId: topic._id, username: { $ne: username } })
+                        .then(usernames => {
+                            for (const usernameItem of usernames) {
+
+                                const copyWords = newWords.map(word => {
+
+                                    return new Word({
+                                        username: usernameItem,
+                                        topicId: word.topicId,
+                                        english: word.english,
+                                        vietnamese: word.vietnamese,
+                                        description: word.description,
+                                        copyId: word._id
+                                    });
+                                });
+
+                                Word.insertMany(copyWords)
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                        })
+
                     return res.json({ code: 1, message: 'Add words to topic successfully' })
                 })
                 .catch(err => {
@@ -220,6 +297,11 @@ module.exports.remove_word_from_topic = (req, res) => {
                 return res.json({ code: 1, message: 'Word not found' })
             }
 
+            Promise.all([
+                Topic.findByIdAndUpdate(word.topicId, { $inc: { total: -1 } }, { new: true }),
+                Word.deleteMany({ copyId: word._id })
+            ])
+
             return res.json({ code: 0, message: "Remove word from topic successfully" })
         })
         .catch(err => {
@@ -229,28 +311,56 @@ module.exports.remove_word_from_topic = (req, res) => {
 
 module.exports.adjust_word_in_topic = (req, res) => {
     const { wordId } = req.params
-    const { english, vietnamese, description, isStarred } = req.body
+    const { english, vietnamese, description } = req.body
 
     if (!mongoose.Types.ObjectId.isValid(wordId)) {
         return res.json({ code: 1, message: 'Invalid word ID' })
     }
 
-    if (!english || !vietnamese) {
-        return res.json({ code: 1, message: 'Please provide full information (english , vietnamese)' })
-    }
-
     Word.findByIdAndUpdate(wordId,
-        { english, vietnamese, description, isStarred }
+        { english, vietnamese, description }
         , { new: true })
         .then(word => {
             if (!word) {
                 return res.json({ code: 1, message: 'Word not found' })
             }
 
-            return res.json({ code: 0, message: 'Adjust word successfully', word })
+            Word.updateMany(
+                { copyId: word._id },
+                { english, vietnamese, description },
+                { new: true }
+            )
+                .then(() => {
+                    return res.json({ code: 0, message: 'Adjust word successfully', word })
+                })
         })
         .catch(err => {
             return res.json({ code: 1, message: 'Adjust word failed' })
+        })
+}
+
+module.exports.toggle_mark_word_in_topic = (req, res) => {
+    const { wordId } = req.params
+
+    if (!mongoose.Types.ObjectId.isValid(wordId)) {
+        return res.json({ code: 1, message: 'Invalid word ID' })
+    }
+
+    Word.findById(wordId)
+        .then(word => {
+            if (!word) {
+                return res.json({ code: 1, message: 'Word not found' })
+            }
+
+            word.isStarred = !word.isStarred
+            word.save()
+                .then(newWord => {
+                    return res.json({ code: 0, message: 'Toggle mark word successfully', newWord })
+                })
+
+        })
+        .catch(err => {
+            return res.json({ code: 1, message: 'Toggle mark word failed' })
         })
 }
 
@@ -266,10 +376,6 @@ module.exports.update_progress_words_in_topic = (req, res) => {
         updateOne: {
             filter: { _id: word._id },
             update: {
-                english: word.english,
-                vietnamese: word.vietnamese,
-                description: word.description,
-                isStarred: word.isStarred,
                 numberCorrect: word.numberCorrect,
                 status: updateStatusWord(word.numberCorrect)
             }

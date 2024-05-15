@@ -2,12 +2,23 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 
 const WordSchema = new Schema({
+    username: {
+        type: String,
+        require: true
+    },
     topicId: {
         type: Schema.Types.ObjectId,
-        ref: 'Topic'
+        ref: 'Topic',
+        require: true
     },
-    english: String,
-    vietnamese: String,
+    english: {
+        type: String,
+        require: true
+    },
+    vietnamese: {
+        type: String,
+        require: true
+    },
     description: String,
     isStarred: {
         type: Boolean,
@@ -19,7 +30,12 @@ const WordSchema = new Schema({
     },
     status: {
         type: String,
-        default: 'not learned' // not learned,  currently learning, mastered
+        enum: ['not learned', 'currently learning', 'mastered'],
+        default: 'not learned'
+    },
+    copyId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Word'
     }
 })
 
