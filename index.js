@@ -16,8 +16,6 @@ app.get("/", (req, res) => {
     res.json({ code: 0, message: "Server launched successfully" });
 });
 
-app.use("/auth", require("./routers/Auth"));
-
 app.use("/accounts", require("./routers/Account"));
 
 app.use("/folders", require("./routers/Folder"));
