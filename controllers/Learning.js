@@ -1,91 +1,143 @@
+const package = require("../middlewares/package.js");
 const { default: mongoose } = require('mongoose')
 const History = require('../models/History')
-const Account = require('../models/Account')
+const Achievement = require('../models/Achievement')
 
 module.exports.save_history = (req, res) => {
-    const { accountId, topicId, mode, total, correct, duration } = req.body
-
-    if (!mongoose.Types.ObjectId.isValid(accountId)) {
-        return res.json({ code: 1, message: 'Invalid account ID' })
-    }
+    const { username, topicId, mode, total, correct, duration } = req.body
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
-        return res.json({ code: 1, message: 'Invalid topic ID' })
+        return res.json(package(1, 'Invalid topic ID', null))
     }
 
-    if (!mode || !total || !duration) {
-        return res.json({ code: 1, message: 'Please provide full information (mode, total, duration)' })
+    if (!username || !mode || !total || !duration) {
+        return res.json(package(1, 'Please provide full information (username, mode, total, duration)', null))
     }
 
     const newHistory = new History({
-        accountId, topicId, mode, total, correct, duration
+        username, topicId, mode, total, correct, duration
     })
 
     newHistory.save()
         .then(history => {
-            return res.json({ code: 0, message: 'Save history successfully', history })
+
+            Promise.all([
+                (correct === total) ? updateUsersMostCorrect(topicId) : null,
+                updateUsersShortestTime(topicId),
+                updateUsersMostTimes(topicId)
+            ])
+
+            return res.json(package(0, 'Save history successfully', history))
+            
         })
         .catch(err => {
-            return res.json({ code: 1, message: 'Save history failed' })
+            return res.json(package(1, 'Save history failed', null))
         })
 }
 
-module.exports.most_correct_answers_topic = (req, res) => {
-    const { topicId } = req.params
+module.exports.search_achievements_by_category = (req, res) => {
+    const { topicId, category } = req.params
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
-        return res.json({ code: 1, message: 'Invalid topic ID' })
+        return res.json(package(1, 'Invalid topic ID', null))
     }
 
-    // top 5 most correct
+    if (!category) {
+        return res.json(package(1, 'Please provide category', null))
+    }
+
+    if(category !== 'corrects' && category !== 'duration' && category !== 'times') {
+        return res.json(package(1, 'Category of achievement not found', null))
+    }
+
+    Achievement.find({ topicId, category }).sort({ rank: 1 })
+        .then(achievements => {
+            return res.json(package(0, 'Search achievements successfully', achievements))
+        })
+        .catch(err => {
+            return res.json(package(1, 'Search achievements failed', err))
+        })
+}
+
+module.exports.get_personal_achievements = (req, res) => {
+    const { username } = req.params
+
+    if (!username) {
+        return res.json(package(1, 'Please provide username', null))
+    }
+
+    Achievement.find({ username })
+        .then(achievements => {
+            return res.json(package(0, 'Search achievements successfully', achievements))
+        })
+        .catch(err => {
+            return res.json(package(1, 'Search achievements failed', err))
+        })
+}
+
+function updateUsersMostCorrect(topicId) {
     History.aggregate([
         { $match: { topicId: new mongoose.Types.ObjectId(topicId) } },
         {
-            $sort: {
-                correct: -1,
-                createAt: 1
+            $group: {
+                _id: "$username",
+                correct: { $max: "$correct" },
+                records: { $push: { correct: "$correct", createAt: "$createAt" } }
             }
         },
-        { $limit: 5 }
-    ])
-        .then(async result => {
-            
-            var accountIds = []
-            for (const item of result) {
-
-                if(!accountIds.includes(item.accountId.toString())) {
-                    accountIds.push(item.accountId.toString())
+        {
+            $addFields: {
+                createAt: {
+                    $reduce: {
+                        input: "$records",
+                        initialValue: null,
+                        in: {
+                            $cond: {
+                                if: { $eq: ["$$this.correct", "$correct"] },
+                                then: "$$this.createAt",
+                                else: "$$value"
+                            }
+                        }
+                    }
                 }
             }
+        },
+        { $sort: { correct: -1, createAt: 1 } },
+        { $limit: 5 }
+    ])
+        .then(async results => {
+            if (results.length !== 0) {
 
-            if (accountIds.length === 0) {
-                return res.json({ code: 1, message: 'This topic has not been researched' })
+                var rank = 1
+                var promises = []
+
+                for (const result of results) {
+                    const promise = Achievement.findOneAndUpdate(
+                        { topicId: topicId, category: 'corrects', rank: rank },
+                        { $set: { username: result._id, topicId: topicId, category: 'corrects', achievement: result.correct, rank: rank } },
+                        { upsert: true, new: true }
+                    ).exec()
+
+                    promises.push(promise);
+                    rank++;
+                }
+
+                Promise.all(promises)
+                    .then(achievements => {
+                        console.log('All achievements created or updated successfully')
+                    })
+                    .catch(err => {
+                        console.log('Error creating or updating achievements:', err)
+                    })
             }
 
-            try {
-                const users = await Promise.all(
-                    accountIds.map(accountId =>
-                        Account.findById(accountId).select('-email -password -role').exec()
-                    )
-                );
-                return res.json({ code: 0, users })
-            } catch (err) {
-                return res.json({ code: 1, message: 'Fetching users failed' })
-            }
         })
         .catch(err => {
-            return res.json({ code: 1, message: 'Search most correct answers topic failed', error: err });
+            console.log('Update most correct answers topic failed', err)
         });
 }
 
-module.exports.shortest_time_complete_topic = (req, res) => {
-    const { topicId } = req.params
-
-    if (!mongoose.Types.ObjectId.isValid(topicId)) {
-        return res.json({ code: 1, message: 'Invalid topic ID' })
-    }
-
-    // top 5 shorstest
+function updateUsersShortestTime(topicId) {
     History.aggregate([
         {
             $match: {
@@ -95,7 +147,7 @@ module.exports.shortest_time_complete_topic = (req, res) => {
         },
         {
             $group: {
-                _id: "$accountId",
+                _id: "$username",
                 duration: { $min: "$duration" },
                 records: { $push: "$$ROOT" }
             }
@@ -103,60 +155,71 @@ module.exports.shortest_time_complete_topic = (req, res) => {
         { $sort: { duration: 1 } },
         { $limit: 5 }
     ])
-        .then(async result => {
-            if (result.length === 0) {
-                return res.json({ code: 1, message: 'This topic does not have user achieving 100% accuracy' })
-            }
+        .then(async results => {
+            if (results.length !== 0) {
 
-            const accountIds = result.map(r => r._id)
-            try {
-                const users = await Promise.all(
-                    accountIds.map(accountId =>
-                        Account.findById(accountId).select('-email -password -role').exec()
-                    )
-                );
-                return res.json({ code: 0, users })
-            } catch (err) {
-                return res.json({ code: 1, message: 'Fetching users failed' })
+                var rank = 1
+                var promises = []
+
+                for (const result of results) {
+                    const promise = Achievement.findOneAndUpdate(
+                        { topicId: topicId, category: 'duration', rank: rank },
+                        { $set: { username: result._id, topicId: topicId, category: 'duration', achievement: result.duration, rank: rank } },
+                        { upsert: true, new: true }
+                    ).exec()
+
+                    promises.push(promise);
+                    rank++;
+                }
+
+                Promise.all(promises)
+                    .then(achievements => {
+                        console.log('All achievements created or updated successfully')
+                    })
+                    .catch(err => {
+                        console.log('Error creating or updating achievements:', err)
+                    })
             }
         })
         .catch(err => {
-            return res.json({ code: 1, message: 'Search shortest time complete topic failed' })
+            console.log('Update shortest time complete topic failed', err)
         });
 }
 
-module.exports.most_times_topic = (req, res) => {
-    const { topicId } = req.params
-
-    if (!mongoose.Types.ObjectId.isValid(topicId)) {
-        return res.json({ code: 1, message: 'Invalid topic ID' })
-    }
-
-    // top 5 most times
+function updateUsersMostTimes(topicId) {
     History.aggregate([
         { $match: { topicId: new mongoose.Types.ObjectId(topicId) } },
-        { $group: { _id: "$accountId", count: { $sum: 1 }, records: { $push: "$$ROOT" } } },
+        { $group: { _id: "$username", count: { $sum: 1 }, records: { $push: "$$ROOT" } } },
         { $sort: { count: -1 } },
         { $limit: 5 }
     ])
-        .then(async result => {
-            if (result.length === 0) {
-                return res.json({ code: 1, message: 'This topic has not been researched' })
-            }
+        .then(async results => {
+            if (results.length !== 0) {
 
-            const accountIds = result.map(r => r._id)
-            try {
-                const users = await Promise.all(
-                    accountIds.map(accountId =>
-                        Account.findById(accountId).select('-email -password -role').exec()
-                    )
-                )
-                return res.json({ code: 0, users })
-            } catch (err) {
-                return res.json({ code: 1, message: 'Fetching users failed' })
+                var rank = 1
+                var promises = []
+
+                for (const result of results) {
+                    const promise = Achievement.findOneAndUpdate(
+                        { topicId: topicId, category: 'times', rank: rank },
+                        { $set: { username: result._id, topicId: topicId, category: 'times', achievement: result.count, rank: rank } },
+                        { upsert: true, new: true }
+                    ).exec()
+
+                    promises.push(promise);
+                    rank++;
+                }
+
+                Promise.all(promises)
+                    .then(achievements => {
+                        console.log('All achievements created or updated successfully')
+                    })
+                    .catch(err => {
+                        console.log('Error creating or updating achievements:', err)
+                    })
             }
         })
         .catch(err => {
-            return res.json({ code: 1, message: 'Search most times study topic failed' });
+            console.log('Update most times study topic failed', err)
         })
 }

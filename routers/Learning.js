@@ -5,10 +5,8 @@ const Controller = require('../controllers/Learning')
 
 Router.post('/save-history', Controller.save_history)
 
-Router.get('/most-correct-answers-topic/:topicId', Controller.most_correct_answers_topic)
+Router.get('/search-achivements/:topicId/:category', Controller.search_achievements_by_category)
 
-Router.get('/shorstest-time-topic/:topicId', Controller.shortest_time_complete_topic)
-
-Router.get('/most-times-topic/:topicId', Controller.most_times_topic)
+Router.get('/personal-achivements/:username', Controller.get_personal_achievements)
 
 module.exports = Router
