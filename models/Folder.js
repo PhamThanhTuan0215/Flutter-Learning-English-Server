@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
 const Schema = mongoose.Schema
+const moment = require('moment');
 
 const FolderSchema = new Schema({
     folderName: {
@@ -12,8 +13,8 @@ const FolderSchema = new Schema({
         require: true
     },
     createAt: {
-        type: Date,
-        default: Date.now
+        type: String,
+        default: moment(Date.now()).format('YYYY-MM-DDTHH-mm-ss')
     }
 })
 

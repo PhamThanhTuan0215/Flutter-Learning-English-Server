@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
 const Schema = mongoose.Schema
+const moment = require('moment')
 
 const TopicSchema = new Schema({
     topicName: {
@@ -19,8 +20,8 @@ const TopicSchema = new Schema({
         default: 0
     },
     createAt: {
-        type: Date,
-        default: Date.now
+        type: String,
+        default: moment(Date.now()).format('YYYY-MM-DDTHH-mm-ss')
     }
 })
 

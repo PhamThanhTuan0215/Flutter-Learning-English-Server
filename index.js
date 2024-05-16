@@ -5,7 +5,6 @@ require("dotenv").config();
 
 const app = express();
 
-// Thiết lập EJS làm template engine
 app.set("view engine", "ejs");
 app.use("/", express.static(path.join(__dirname, "public")));
 
@@ -24,6 +23,8 @@ app.use("/accounts", require("./routers/Account"));
 app.use("/folders", require("./routers/Folder"));
 
 app.use("/topics", require("./routers/Topic"));
+
+app.use("/learnings", require("./routers/Learning"));
 
 app.use((req, res) => {
     res.json({ code: 2, message: "Path is not supported" });

@@ -11,7 +11,7 @@ module.exports.get_folders = (req, res) => {
         return res.json({ code: 1, message: 'Invalid account ID' })
     }
 
-    Folder.find({ accountId })
+    Folder.find({ accountId }).sort({ createAt: -1 })
         .then(listFolder => {
             return res.json({ code: 0, listFolder })
         })

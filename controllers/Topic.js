@@ -17,7 +17,7 @@ module.exports.get_topics = (req, res) => {
 
             const topicIds = accountTopics.map(at => at.topicId)
 
-            return Topic.find({ _id: { $in: topicIds } })
+            return Topic.find({ _id: { $in: topicIds } }).sort({ createAt: -1 })
         })
         .then(topics => {
             return res.json({ code: 0, topics })
@@ -29,7 +29,7 @@ module.exports.get_topics = (req, res) => {
 
 module.exports.get_all_public_topics = (req, res) => {
 
-    Topic.find({ isPublic: true })
+    Topic.find({ isPublic: true }).sort({ createAt: -1 })
         .then(listTopic => {
             return res.json({ code: 0, listTopic })
         })
