@@ -7,12 +7,10 @@ const mailer = require("../utils/mailer");
 module.exports = {
     login: async (req, res) => {
         try {
-            const { username, password } = req.body;
+            const { email, password } = req.body;
 
-            if (!username || username.length < 1) {
-                return res.json(
-                    package(1, "Please provide your username!", null)
-                );
+            if (!email || email.length < 1) {
+                return res.json(package(1, "Please provide your email!", null));
             } else if (!password || password.length < 1) {
                 return res.json(
                     package(1, "Please provide your password!", null)
@@ -20,11 +18,9 @@ module.exports = {
             }
 
             //check email ton tai
-            const userDB = await Account.findOne({ username: username });
+            const userDB = await Account.findOne({ email: email });
             if (!userDB) {
-                return res.json(
-                    package(1, "Invalid username or password", null)
-                );
+                return res.json(package(1, "Invalid email or password", null));
             }
 
             if (bcypt.compareSync(password, userDB.password)) {
@@ -53,11 +49,11 @@ module.exports = {
             if (checkEmailExist.length > 0)
                 return res.json(package(1, "Email is exist ", null));
 
-            const checkUsernameExist = await Account.find({
-                username: username,
-            });
-            if (checkUsernameExist.length > 0)
-                return res.json(package(1, "Usename is exist", null));
+            // const checkUsernameExist = await Account.find({
+            //     username: username,
+            // });
+            // if (checkUsernameExist.length > 0)
+            //     return res.json(package(1, "Usename is exist", null));
 
             const hashedPassword = bcypt.hashSync(password, 10);
 
@@ -82,7 +78,7 @@ module.exports = {
                 return res.json(
                     package(1, "Internal error", mailResult.message)
                 );
-            return res.json(package(1, "Save user successfully", result));
+            return res.json(package(0, "Save user successfully", result));
         } catch (error) {
             res.json(package(2, "Internal error", error.message));
         }
@@ -102,32 +98,62 @@ module.exports = {
 
     resendVerifyEmail: async (req, res) => {
         try {
-            const { username, email, name } = req.body;
-            const token = generateToken(email);
+            const { email } = req.body;
 
-            const url = `${process.env.URL}/auth/verify/${token}`;
+            const user = await Account.findOne({ email: email });
+            if (!user) return res.json(package(1, "Can not find user", null));
 
+            // Tạo mật khẩu mới
+            const password = generatePassword();
+            const hashedPassword = bcypt.hashSync(password, 10);
+
+            // Cập nhật mật khẩu người dùng
+            user.password = hashedPassword;
+            await user.save();
+
+            // Gửi email thông báo
             const mailResult = await mailer.sendMail(
                 email,
-                "Please reset your password",
-                annouceChangAccount(url)
+                "Reset your password",
+                annouceChangAccount(user.fullName, password)
             );
             if (mailResult.status === "error")
                 return res.json(
                     package(1, "Internal error", mailResult.message)
                 );
-            return res.json(package(1, "Send email successfully", null));
+
+            return res.json(package(0, "Send email successfully", null));
         } catch (error) {
-            res.json(package(2, "Internal error", error.message));
+            return res.json(package(2, "Internal error", error.message));
+        }
+    },
+
+    changePassword: async (req, res) => {
+        try {
+            const { _id, oldPassword, newPassword } = req.body;
+
+            const user = await Account.findById(_id);
+
+            if (bcypt.compareSync(oldPassword, user.password)) {
+                const hashedPassword = bcypt.hashSync(newPassword, 10);
+                user.password = hashedPassword;
+                await user.save;
+            }
+        } catch (error) {
+            return res.json(package(2, "Internal error", error.message));
         }
     },
 };
 
-function generateToken(username) {
-    const token = jwt.sign({ username }, process.env.JWT_SECRET, {
-        expiresIn: "5m",
-    });
-    return token;
+function generatePassword() {
+    const characters =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let password = "";
+    for (let i = 0; i < 5; i++) {
+        const randomIndex = Math.floor(Math.random() * characters.length);
+        password += characters[randomIndex];
+    }
+    return password;
 }
 
 function accountCreateAccount(name) {
@@ -216,91 +242,60 @@ function accountCreateAccount(name) {
     `;
 }
 
-function annouceChangAccount(linkChange) {
+function annouceChangAccount(userName, newPassword) {
     return `
     <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background-color: #f4f4f4;
-                margin: 0;
-                padding: 0;
-            }
-            .container {
-                width: 100%;
-                max-width: 600px;
-                margin: 0 auto;
-                background-color: #ffffff;
-                border: 1px solid #dddddd;
-                padding: 20px;
-            }
-            .header {
-                background-color: #FF5722;
-                color: #ffffff;
-                padding: 10px 0;
-                text-align: center;
-            }
-            .header h1 {
-                margin: 0;
-                font-size: 24px;
-            }
-            .content {
-                padding: 20px;
-                text-align: center;
-            }
-            .content h2 {
-                color: #333333;
-            }
-            .content p {
-                color: #666666;
-                font-size: 16px;
-                line-height: 1.5;
-            }
-            .content a {
-                display: inline-block;
-                margin-top: 20px;
-                padding: 10px 20px;
-                background-color: #FF5722;
-                color: #ffffff;
-                text-decoration: none;
-                border-radius: 5px;
-            }
-            .footer {
-                text-align: center;
-                padding: 10px 0;
-                font-size: 12px;
-                color: #999999;
-                border-top: 1px solid #dddddd;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>Password Reset Request</h1>
-            </div>
-            <div class="content">
-                <h2>Password Reset</h2>
-                <p>Hello [User Name],</p>
-                <p>
-                    We received a request to reset your password. Click the button below to reset your password:
-                </p>
-                <a href="${linkChange}">Reset Password</a>
-                <p>
-                    If you did not request a password reset, please ignore this email or contact support if you have questions.
-                </p>
-            </div>
-            <div class="footer">
-                <p>If you did not make this request, please disregard this email.</p>
-                <p>&copy; 2024 Your Company. All rights reserved.</p>
-            </div>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Reset Notification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            border: 1px solid #cccccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .header {
+            text-align: center;
+            padding-bottom: 20px;
+        }
+        .content {
+            padding: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 20px;
+            color: #777777;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Password Reset Notification</h2>
         </div>
-    </body>
-    </html>
-        
+        <div class="content">
+            <p>Dear ${userName},</p>
+            <p>Your password has been successfully reset. Here are your new login details:</p>
+            <p><strong>New Password:</strong> ${newPassword}</p>
+            <p>Please make sure to change your password after your next login to ensure your account's security.</p>
+            <p>If you did not request this change, please contact our support team immediately.</p>
+            <p>Best regards,</p>
+            <p>Group 49</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2024 Group 49. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html> 
     `;
 }
