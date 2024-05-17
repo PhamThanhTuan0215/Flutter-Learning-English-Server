@@ -295,7 +295,7 @@ module.exports.add_words_to_topic = (req, res) => {
                             console.error(err);
                         })
 
-                    return res.json({ code: 1, message: 'Add words to topic successfully' })
+                    return res.json({ code: 0, message: 'Add words to topic successfully', newWords })
                 })
                 .catch(err => {
                     return res.json({ code: 1, message: 'Add words to topic failed' })
