@@ -1,7 +1,8 @@
 const package = require("../middlewares/package.js");
 const { default: mongoose } = require('mongoose')
-const History = require('../models/History')
-const Achievement = require('../models/Achievement')
+const History = require('../models/History.js')
+const Topic = require('../models/Topic.js')
+const Achievement = require('../models/Achievement.js')
 
 module.exports.save_history = (req, res) => {
     const { username, topicId, mode, total, correct, duration } = req.body
@@ -35,7 +36,7 @@ module.exports.save_history = (req, res) => {
         })
 }
 
-module.exports.search_achievements_by_category = (req, res) => {
+module.exports.search_achievements_by_category = async  (req, res) => {
     const { topicId, category } = req.params
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
@@ -50,29 +51,71 @@ module.exports.search_achievements_by_category = (req, res) => {
         return res.json(package(1, 'Category of achievement not found', null))
     }
 
-    Achievement.find({ topicId, category }).sort({ rank: 1 })
-        .then(achievements => {
-            return res.json(package(0, 'Search achievements successfully', achievements))
+    try {
+        const achievements = await Achievement.find({ topicId, category }).sort({ rank: 1 }).exec()
+
+        if (achievements.length === 0) {
+            return res.json({ code: 0, message: 'No achievements found', data: [] })
+        }
+
+        const topicIds = achievements.map(achievement => achievement.topicId)
+
+        const topics = await Topic.find({ _id: { $in: topicIds } }).exec()
+        
+        const topicMap = topics.reduce((map, topic) => {
+            map[topic._id] = topic
+            return map
+        }, {})
+
+        const detailsAchievements = achievements.map(achievement => {
+            const topic = topicMap[achievement.topicId];
+            return {
+                ...achievement.toObject(),
+                topic: topic,
+            }
         })
-        .catch(err => {
-            return res.json(package(1, 'Search achievements failed', err))
-        })
+
+        return res.json({ code: 0, message: 'Search achievements successfully', data: detailsAchievements })
+    } catch (err) {
+        return res.json({ code: 1, message: 'Search achievements failed', error: err })
+    }
 }
 
-module.exports.get_personal_achievements = (req, res) => {
+module.exports.get_personal_achievements = async (req, res) => {
     const { username } = req.params
 
     if (!username) {
         return res.json(package(1, 'Please provide username', null))
     }
 
-    Achievement.find({ username })
-        .then(achievements => {
-            return res.json(package(0, 'Search achievements successfully', achievements))
-        })
-        .catch(err => {
-            return res.json(package(1, 'Search achievements failed', err))
-        })
+    try {
+        const achievements = await Achievement.find({ username }).exec()
+
+        if (achievements.length === 0) {
+            return res.json(package(0, 'No achievements found', []))
+        }
+
+        const topicIds = achievements.map(achievement => achievement.topicId)
+
+        const topics = await Topic.find({ _id: { $in: topicIds } }).exec()
+        
+        const topicMap = topics.reduce((map, topic) => {
+            map[topic._id] = topic
+            return map
+        }, {});
+
+        const enrichedAchievements = achievements.map(achievement => {
+            const topic = topicMap[achievement.topicId];
+            return {
+                ...achievement.toObject(),
+                topic: topic,
+            };
+        });
+
+        return res.json(package(0, 'Search achievements successfully', enrichedAchievements))
+    } catch (err) {
+        return res.json(package(1, 'Search achievements failed', err))
+    }
 }
 
 function updateUsersMostCorrect(topicId) {

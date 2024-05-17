@@ -1,7 +1,7 @@
 const express = require('express')
 const Router = express.Router()
 
-const Controller = require('../controllers/Learning')
+const Controller = require('../controllers/Achievement')
 
 Router.post('/save-history', Controller.save_history)
 
