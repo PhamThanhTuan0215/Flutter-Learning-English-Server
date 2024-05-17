@@ -133,12 +133,14 @@ module.exports = {
             const { _id, oldPassword, newPassword } = req.body;
 
             const user = await Account.findById(_id);
+            if (!user) return res.json(package(1, "Internal error", null));
 
-            if (bcypt.compareSync(oldPassword, user.password)) {
-                const hashedPassword = bcypt.hashSync(newPassword, 10);
-                user.password = hashedPassword;
-                await user.save;
-            }
+            if (!bcypt.compareSync(oldPassword, user.password))
+                return res.json(package(1, "Password not match"));
+            const hashedPassword = bcypt.hashSync(newPassword, 10);
+            user.password = hashedPassword;
+            await user.save();
+            res.json(package(0, "Change password successfully!", null));
         } catch (error) {
             return res.json(package(2, "Internal error", error.message));
         }
