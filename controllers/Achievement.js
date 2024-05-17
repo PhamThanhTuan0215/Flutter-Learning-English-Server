@@ -3,6 +3,7 @@ const { default: mongoose } = require('mongoose')
 const History = require('../models/History.js')
 const Topic = require('../models/Topic.js')
 const Achievement = require('../models/Achievement.js')
+const Account = require('../models/Account.js')
 
 module.exports.save_history = (req, res) => {
     const { username, topicId, mode, total, correct, duration } = req.body
@@ -265,4 +266,50 @@ function updateUsersMostTimes(topicId) {
         .catch(err => {
             console.log('Update most times study topic failed', err)
         })
+}
+
+module.exports.get_achievements_byTopicId = async (req, res) => {
+    const { topicId } = req.params
+
+    if (!topicId) {
+        return res.json(package(1, 'Please provide topic id', null))
+    }
+
+    try {
+        const achievements = await Achievement.find({ topicId }).exec()
+
+        if (achievements.length === 0) {
+            return res.json(package(0, 'No achievements found', []))
+        }
+
+        const topicIds = achievements.map(achievement => achievement.topicId)
+
+        const topics = await Topic.find({ _id: { $in: topicIds } }).exec()
+        
+        const topicMap = topics.reduce((map, topic) => {
+            map[topic._id] = topic
+            return map
+        }, {});
+
+        const userNames = achievements.map(achievement => achievement.username)
+        const users = await Account.find({ username: { $in: userNames } }).exec()
+        const userMap = users.reduce((map, user) => {
+            map[user.username] = user
+            return map
+        }, {});
+
+        const enrichedAchievements = achievements.map(achievement => {
+            const topic = topicMap[achievement.topicId];
+            const user = userMap[achievement.username];
+            return {
+                ...achievement.toObject(),
+                topic: topic,
+                user: user,
+            };
+        });
+
+        return res.json(package(0, 'Search achievements successfully', enrichedAchievements))
+    } catch (err) {
+        return res.json(package(1, 'Search achievements failed', err))
+    }
 }

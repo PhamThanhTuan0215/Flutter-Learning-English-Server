@@ -9,4 +9,6 @@ Router.get('/search-achivements/:topicId/:category', Controller.search_achieveme
 
 Router.get('/personal-achivements/:username', Controller.get_personal_achievements)
 
+Router.get('/get-achivements/:topicId', Controller.get_achievements_byTopicId)
+
 module.exports = Router
