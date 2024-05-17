@@ -5,6 +5,7 @@ const {
     login,
     getProfile,
     resendVerifyEmail,
+    changePassword,
 } = require("../controllers/accountController");
 
 //[post] /register
@@ -18,5 +19,8 @@ router.get("/:uid", getProfile);
 
 //[get] /resetPassword
 router.post("/reset", resendVerifyEmail);
+
+//[post]
+router.post("/changePassword", changePassword);
 
 module.exports = router;
