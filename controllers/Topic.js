@@ -27,6 +27,28 @@ module.exports.get_topics = (req, res) => {
         });
 }
 
+module.exports.get_topic_from_id = (req, res) => {
+    
+        const { topicId } = req.params
+    
+        if (!mongoose.Types.ObjectId.isValid(topicId)) {
+            return res.json({ code: 1, message: 'Invalid topic ID' })
+        }
+    
+        Topic.findById(topicId)
+            .then(topic => {
+                if (!topic) {
+                    return res.json({ code: 1, message: 'Topic not found' })
+                }
+    
+                return res.json({ code: 0, topic })
+            })
+            .catch(err => {
+                return res.json({ code: 1, message: 'Search topic failed' })
+            });
+    
+}
+
 module.exports.get_all_public_topics = (req, res) => {
 
     Topic.find({ isPublic: true }).sort({ createAt: -1 })

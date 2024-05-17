@@ -5,6 +5,8 @@ const Controller = require('../controllers/Topic')
 
 Router.get('/library/:username', Controller.get_topics)
 
+Router.get('/getTopic/:topicId', Controller.get_topic_from_id)
+
 Router.get('/public', Controller.get_all_public_topics)
 
 Router.post('/add', Controller.add_topic)
