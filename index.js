@@ -22,7 +22,7 @@ app.use("/folders", require("./routers/Folder"));
 
 app.use("/topics", require("./routers/Topic"));
 
-app.use("/learnings", require("./routers/Learning"));
+app.use("/achievements", require("./routers/Achievement"));
 
 app.use((req, res) => {
     res.json({ code: 2, message: "Path is not supported" });

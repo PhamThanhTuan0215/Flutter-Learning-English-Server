@@ -2,7 +2,7 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 const moment = require('moment')
 
-const HistorySchema = new Schema({
+const AchievementSchema = new Schema({
     username: {
         type: String,
         require: true
@@ -12,22 +12,18 @@ const HistorySchema = new Schema({
         ref: 'Topic',
         require: true
     },
-    mode: {
+    category: {
         type: String,
-        enum: ['flashcard', 'quiz', 'type'],
+        enum: ['corrects', 'duration', 'times'],
         require: true
     },
-    total: {
-        type: Number,
+    achievement: {
+        type: String,
         require: true
     },
-    correct: {
+    rank: {
         type: Number,
-        default: 0
-    },
-    duration: {
-        type: Number, // seconds
-        required: true
+        require: true
     },
     createAt: {
         type: String,
@@ -35,4 +31,4 @@ const HistorySchema = new Schema({
     }
 })
 
-module.exports = mongoose.model('History', HistorySchema)
+module.exports = mongoose.model('Achievement', AchievementSchema)
