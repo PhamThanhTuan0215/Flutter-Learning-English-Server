@@ -1,8 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
+const cors = require("cors");
 require("dotenv").config();
-const cors = require('cors');
 
 const app = express();
 
@@ -14,6 +14,7 @@ app.use("/", express.static(path.join(__dirname, "public")));
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+app.use(cors());
 
 app.get("/", (req, res) => {
     res.json({ code: 0, message: "Server launched successfully" });

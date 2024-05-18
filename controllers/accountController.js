@@ -43,7 +43,9 @@ module.exports = {
 
     register: async (req, res) => {
         try {
-            const { username, fullName, email, password, imageUrl } = req.body;
+            const { fullName, email, password, imageUrl } = req.body;
+
+            const username = email.split("@")[0];
 
             const checkEmailExist = await Account.find({ email: email });
             if (checkEmailExist.length > 0)
