@@ -24,7 +24,7 @@ module.exports.save_history = (req, res) => {
         .then(history => {
 
             Promise.all([
-                (correct === total) ? updateUsersMostCorrect(topicId) : null,
+                updateUsersMostCorrect(topicId),
                 updateUsersShortestTime(topicId),
                 updateUsersMostTimes(topicId)
             ])
